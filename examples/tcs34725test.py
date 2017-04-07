@@ -8,7 +8,7 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
-
+    
 import time
 import TCS34725
 import smbus
@@ -62,17 +62,17 @@ while True:
     r *= 256 
     g *= 256
     b *= 256
-	color_temp=sensor.calcualteColorTemperature(r,g,b)
-	lux=sensor.calcualteLux(r,g,b)
+    color_temp=sensor.calcualteColorTemperature(r,g,b)
+    lux=sensor.calcualteLux(r,g,b)
     print("R: %s G: %s B: %s" % r,g,b)
     print("Color Temperature: %s", % color_temp)
-	print("LUX: %s", % lux)
-	
+    print("LUX: %s", % lux)
+    
   if ((currentTimeS - previousRateTime) >= 1.0):
     colorRate = colorCounter
     colorCounter = 0
     previousRateTime = currentTimeS
-	
+    
   print("Color rate: %d" % (colorRate) ) 
   
   # release task
