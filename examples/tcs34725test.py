@@ -10,6 +10,8 @@
 # THE SOFTWARE.
 
 import time
+import TCS34725
+import smbus
 
 integrationtime = 0xFF
 #  TCS34725_INTEGRATIONTIME_2_4MS  = 0xFF #    2.4ms -   1 cycle  - Max Count: 1024  
@@ -35,9 +37,12 @@ loop_interval = 0.001 # seconds
 # on the Pi's revision.
 #
 # Optionally you can override the bus number:
-#sensor = TCS34725.TCS34725(busnum=2)
-sensor = TCS34725.TCS34725()
+#         TCS34725.TCS34725(address=0x30, busnum=2)
+#         TCS34725.TCS34725(integration_time=TCS34725.TCS34725_INTEGRATIONTIME_700MS,
+#                                       gain=TCS34725.TCS34725_GAIN_60X)
 
+sensor = TCS34725.TCS34725()
+sensor.setInterrupt(False)
 sensor.setIntegrationTime(integrationtime)
 sensor.setGain(gain)
   
@@ -57,8 +62,12 @@ while True:
     r *= 256 
     g *= 256
     b *= 256
+	color_temp=sensor.calcualteColorTemperature(r,g,b)
+	lux=sensor.calcualteLux(r,g,b)
     print("R: %s G: %s B: %s" % r,g,b)
-
+    print("Color Temperature: %s", % color_temp)
+	print("LUX: %s", % lux)
+	
   if ((currentTimeS - previousRateTime) >= 1.0):
     colorRate = colorCounter
     colorCounter = 0

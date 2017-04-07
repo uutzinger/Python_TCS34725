@@ -1,14 +1,13 @@
 #!/usr/bin/python3
 
 from __future__ import division
-import time
-import math
-import struct
-import array
+
 import time
 
 # TCS34725 default address.
-TCS34725_I2CADDR          = 0x40
+TCS34725_I2CADDR          = 0x29
+
+TCS34725_COMMAND_BIT      = 0x80
 
 # Commands
 TCS34725_ENABLE           = 0x00
@@ -62,70 +61,93 @@ TCS34725_GDATAH           = 0x19
 TCS34725_BDATAL           = 0x1A    # Blue channel data #
 TCS34725_BDATAH           = 0x1B
 
-def enum(**enums):
-   return type('Enum', enums)
+TCS34725_INTEGRATIONTIME_2_4MS  = 0xFF  #    2.4ms -   1 cycle  - Max Count: 1024  
+TCS34725_INTEGRATIONTIME_24MS   = 0xF6  #   24ms   -  10 cycles - Max Count: 10240 
+TCS34725_INTEGRATIONTIME_50MS   = 0xEB  #   50ms   -  20 cycles - Max Count: 20480 
+TCS34725_INTEGRATIONTIME_101MS  = 0xD5  #  101ms   -  42 cycles - Max Count: 43008 
+TCS34725_INTEGRATIONTIME_154MS  = 0xC0  #  154ms   -  64 cycles - Max Count: 65535 
+TCS34725_INTEGRATIONTIME_700MS  = 0x00  #  700ms   - 256 cycles - Max Count: 65535 
 
-tcs34725IntegrationTime_t = enum( \
-  TCS34725_INTEGRATIONTIME_2_4MS  = 0xFF, \  #    2.4ms -   1 cycle  - Max Count: 1024  
-  TCS34725_INTEGRATIONTIME_24MS   = 0xF6, \  #   24ms   -  10 cycles - Max Count: 10240 
-  TCS34725_INTEGRATIONTIME_50MS   = 0xEB, \  #   50ms   -  20 cycles - Max Count: 20480 
-  TCS34725_INTEGRATIONTIME_101MS  = 0xD5, \  #  101ms   -  42 cycles - Max Count: 43008 
-  TCS34725_INTEGRATIONTIME_154MS  = 0xC0, \  #  154ms   -  64 cycles - Max Count: 65535 
-  TCS34725_INTEGRATIONTIME_700MS  = 0x00  \  #  700ms   - 256 cycles - Max Count: 65535 
-  )
-
-
-tcs34725Gain_t = enum( \
-  TCS34725_GAIN_1X                = 0x00, \  #   No gain
-  TCS34725_GAIN_4X                = 0x01, \  #   4x gain
-  TCS34725_GAIN_16X               = 0x02, \  #  16x gain
-  TCS34725_GAIN_60X               = 0x03  \  #  60x gain
-  )
+TCS34725_GAIN_1X                = 0x00  #   No gain
+TCS34725_GAIN_4X                = 0x01  #   4x gain
+TCS34725_GAIN_16X               = 0x02  #  16x gain
+TCS34725_GAIN_60X               = 0x03  #  60x gain
 
 class TCS34725(object):
-    def __init__(self, i2c=None, **kwargs):
-        self._logger = logging.getLogger('TCS34725.TCS34725')
+    def __init__(self, integration_time=TCS34725_INTEGRATIONTIME_2_4MS,
+                 gain=TCS34725_GAIN_4X, address=TCS34725_ADDRESS, i2c=None, **kwargs):
+        """Initialize the TCS34725 sensor."""				 
         # Create I2C device.
         if i2c is None:
             import Adafruit_GPIO.I2C as I2C
             i2c = I2C
-        self._device = i2c.get_i2c_device(TCS34725_I2CADDR, **kwargs)
+        self._device = i2c.get_i2c_device(address, **kwargs)
 		# Make sure we are connected
-		x = uint8(self._device.read8(TCS34725_ENABLE))
-		if ((x != 0x44) && (x != 0x10)):
-		    return False
-		else
-		    self._tcs34725Initialized = True
-		self.setIntegrationTime(tcs34725IntegrationTime_t.TCS34725_INTEGRATIONTIME_2_4MS)
-		self._tcs34725IntegrationTime = tcs34725IntegrationTime_t.TCS34725_INTEGRATIONTIME_2_4MS
-        self.setGain(tcs34725Gain_t.TCS34725_GAIN_1X)
-		self._tcs34725Gain = tcs34725Gain_t.TCS34725_GAIN_1X
-        self.enable()		
-		return True
-    
-    def enable():
-        self._device.write8(TCS34725_ENABLE, TCS34725_ENABLE_PON)
-        time.sleep(0.003);
-        self._device.write8(TCS34725_ENABLE, TCS34725_ENABLE_PON | TCS34725_ENABLE_AEN) 
+		chip_id = uint8(self._device.read8(TCS34725_ID))
+		if ((chip_id != 0x44) ):
+		    raise RuntimeError('Failed to read TCS34725 ID, check wiring.')
 
-    def disable():
+        self.setIntegrationTime(integration_time)
+        self.setGain(gain)
+        self.enable()		
+    
+    def enable(self):
+        """Enable the chip."""
+        self._device.write8(TCS34725_ENABLE, TCS34725_ENABLE_PON)
+        time.sleep(0.01);
+        self._device.write8(TCS34725_ENABLE, (TCS34725_ENABLE_PON | TCS34725_ENABLE_AEN)) 
+
+    def disable(self):
+        """Disable the chip (power down)."""
 	    # Turn the device off to save power
         reg = uint8(self._device.read8(TCS34725_ENABLE))
         self._device.write8(TCS34725_ENABLE, reg & ~(TCS34725_ENABLE_PON | TCS34725_ENABLE_AEN))
  
     def setGain(self, gain):
+        """Adjusts the gain on the TCS34725 (adjusts the sensitivity to light).
+        Use one of the following constants:
+         - TCS34725_GAIN_1X   = No gain
+         - TCS34725_GAIN_4X   = 2x gain
+         - TCS34725_GAIN_16X  = 16x gain
+         - TCS34725_GAIN_60X  = 60x gain
+        """
         # Update the timing register
         self._device.write8(TCS34725_CONTROL, gain)
         # Update value placeholders
         self._tcs34725Gain = gain
-  
+
+    def getGain(self):
+        """Return the current gain value.  This will be one of the constants
+        specified in the set_gain doc string.
+        """
+        return self._device.read8(TCS34725_CONTROL)
+		
 	def setIntegrationTime(self, it):
+        """Sets the integration time for the TC34725.  Provide one of these
+        constants:
+         - TCS34725_INTEGRATIONTIME_2_4MS  = 2.4ms - 1 cycle    - Max Count: 1024
+         - TCS34725_INTEGRATIONTIME_24MS   = 24ms  - 10 cycles  - Max Count: 10240
+         - TCS34725_INTEGRATIONTIME_50MS   = 50ms  - 20 cycles  - Max Count: 20480
+         - TCS34725_INTEGRATIONTIME_101MS  = 101ms - 42 cycles  - Max Count: 43008
+         - TCS34725_INTEGRATIONTIME_154MS  = 154ms - 64 cycles  - Max Count: 65535
+         - TCS34725_INTEGRATIONTIME_700MS  = 700ms - 256 cycles - Max Count: 65535
+        """
         # Update the timing register */
         self._device.write8(TCS34725_ATIME, it)
         # Update value placeholders */
         self._tcs34725IntegrationTime = it
+
+	def getIntegrationTime(self):
+        """Return the current integration time value.  This will be one of the
+        constants specified in the set_integration_time doc string.
+        """
+        return self.device.read8(TCS34725_ATIME)
 	
     def getRawData(self):
+        """Reads the raw red, green, blue and clear channel values. Will return
+        a 4-tuple with the red, green, blue, clear color values (unsigned 16-bit
+        numbers).
+        """
 	    #
         c = self._device.read16(TCS34725_CDATAL);
         r = self._device.read16(TCS34725_RDATAL);
@@ -133,7 +155,7 @@ class TCS34725(object):
         b = self._device.read16(TCS34725_BDATAL);
 		# Set a delay for the integration time */
 		if   self._tcs34725IntegrationTime == TCS34725_INTEGRATIONTIME_2_4MS:
-            time.sleep(0.003)
+            time.sleep(0.0024)
 		elif self._tcs34725IntegrationTime == TCS34725_INTEGRATIONTIME_24MS:
             time.sleep(0.024)
 		elif self._tcs34725IntegrationTime == TCS34725_INTEGRATIONTIME_50MS:
@@ -144,7 +166,7 @@ class TCS34725(object):
             time.sleep(0.154)
 		elif self._tcs34725IntegrationTime == TCS34725_INTEGRATIONTIME_700MS:
             time.sleep(0.700)
-        return r, g, b, c ;
+        return (r, g, b, c)
 
 	def getRawData_noDelay(self):
 	    #
@@ -152,23 +174,27 @@ class TCS34725(object):
         r = self._device.read16(TCS34725_RDATAL);
         g = self._device.read16(TCS34725_GDATAL);
         b = self._device.read16(TCS34725_BDATAL);
-        return r, g, b, c ;
+        return (r, g, b, c)
 
     def setPersistanceFilter(self):
         self._device.write8(TCS34725_PERS, TCS34725_PERS_NONE); 
 
     def setInterrupt(self, status):
+        """Enable or disable interrupts by setting enabled to True or False."""
         r = uint8(self._device.read8(TCS34725_ENABLE))
-        if status == True:
+        if status:
             r |= TCS34725_ENABLE_AIEN;
         else:
             r &= ~TCS34725_ENABLE_AIEN;
         self._device.write8(TCS34725_ENABLE, r);
+		time.sleep(1)
 
     def clearInterrupt(self):
-        self._device.write8(TCS34725_COMMAND_BIT | 0x66);
+        self._device.write8(0x66 & 0xFF);
 
     def setIntLimits(self, low, high):
+        """Set the interrupt limits to provied unsigned 16-bit threshold values.
+        """
         self._device.write8(0x04, low & 0xFF);
         self._device.write8(0x05, low >> 8);
         self._device.write8(0x06, high & 0xFF);
@@ -182,19 +208,24 @@ class TCS34725(object):
 	    X = (-0.14282 * r) + (1.54924 * g) + (-0.95641 * b);
         Y = (-0.32466 * r) + (1.57837 * g) + (-0.73191 * b);
         Z = (-0.68202 * r) + (0.77073 * g) + ( 0.56332 * b);
+		if (X+Y+Z) == 0:
+		    return None
         # 2. Calculate the chromaticity co-ordinates      */
         xc = (X) / (X + Y + Z);
         yc = (Y) / (X + Y + Z);
+		if (0.1858 - yz) == 0:
+		    return None
+			
         # 3. Use McCamy's formula to determine the CCT    */
         n = (xc - 0.3320) / (0.1858 - yc);
         # Calculate the final CCT */
-        cct = (449.0 * math.pow(n, 3)) + (3525.0 * math.pow(n, 2)) + (6823.3 * n) + 5520.33;
+        cct = (449.0 * (n ** 3.0)) + (3525.0 * (n ** 2.0)) + (6823.3 * n) + 5520.33;
 		# Return the results in degrees Kelvin
-        return cct;
+        return int(cct)
 
     def calculateLux(r, g, b)
         # This only uses RGB ... how can we integrate clear or calculate lux */
         # based exclusively on clear since this might be more reliable?      */
-        return (-0.32466 * r) + (1.57837 * g) + (-0.73191 * b);
+        return int((-0.32466 * r) + (1.57837 * g) + (-0.73191 * b))
 
 

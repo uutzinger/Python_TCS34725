@@ -10,6 +10,8 @@
 # THE SOFTWARE.
 
 import time
+import TCS34725
+import smbus
 
 integrationtime = 0xFF
 #  TCS34725_INTEGRATIONTIME_2_4MS  = 0xFF #    2.4ms -   1 cycle  - Max Count: 1024  
@@ -25,7 +27,6 @@ gain = 0x00
 #  TCS34725_GAIN_16X               = 0x02 #  16x gain
 #  TCS34725_GAIN_60X               = 0x03 #  60x gain
    
-poll_interval = 0.1 # seconds
 loop_interval = 0.001 # seconds
 
 # Default constructor will pick a default I2C bus.
@@ -35,7 +36,10 @@ loop_interval = 0.001 # seconds
 # on the Pi's revision.
 #
 # Optionally you can override the bus number:
-#sensor = TCS34725.TCS34725(busnum=2)
+#         TCS34725.TCS34725(address=0x30, busnum=2)
+#         TCS34725.TCS34725(integration_time=TCS34725.TCS34725_INTEGRATIONTIME_700MS,
+#                                       gain=TCS34725.TCS34725_GAIN_60X)
+
 sensor = TCS34725.TCS34725()
 
 sensor.setIntegrationTime(integrationtime)
@@ -51,11 +55,6 @@ def myCallback()
 
 GPIO.add_event_detect(interruptPin, GPIO.FALLING, callback=myCallback)
 
-sensor = TCS34725.TCS34725()
-
-sensor.setIntegrationTime(integrationtime)
-sensor.setGain(gain)
-  
 # Set persistence filter to generate an interrupt for every RGB Cycle, regardless of the integration limits
 sensor.setPersistanceFilter() 
 sensor.setInterrupt(True)
