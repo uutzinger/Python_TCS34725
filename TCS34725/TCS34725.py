@@ -156,6 +156,23 @@ class TCS34725(object):
 
     def setPersistanceFilter(self):
         self._device.write8(TCS34725_PERS, TCS34725_PERS_NONE); 
+
+    def setInterrupt(self, status):
+        r = uint8(self._device.read8(TCS34725_ENABLE))
+        if status == True:
+            r |= TCS34725_ENABLE_AIEN;
+        else:
+            r &= ~TCS34725_ENABLE_AIEN;
+        self._device.write8(TCS34725_ENABLE, r);
+
+    def clearInterrupt(self):
+        self._device.write8(TCS34725_COMMAND_BIT | 0x66);
+
+    def setIntLimits(self, low, high):
+        self._device.write8(0x04, low & 0xFF);
+        self._device.write8(0x05, low >> 8);
+        self._device.write8(0x06, high & 0xFF);
+        self._device.write8(0x07, high >> 8);
 		
     def calculateColorTemperature(r, g, b)
 	    # 1. Map RGB values to their XYZ counterparts.    */
@@ -180,19 +197,4 @@ class TCS34725(object):
         # based exclusively on clear since this might be more reliable?      */
         return (-0.32466 * r) + (1.57837 * g) + (-0.73191 * b);
 
-    def setInterrupt(self, status):
-        r = uint8(self._device.read8(TCS34725_ENABLE))
-        if status == True:
-            r |= TCS34725_ENABLE_AIEN;
-        else:
-            r &= ~TCS34725_ENABLE_AIEN;
-        self._device.write8(TCS34725_ENABLE, r);
 
-    def clearInterrupt(self):
-        self._device.write8(TCS34725_COMMAND_BIT | 0x66);
-
-    def setIntLimits(self, low, high):
-        self._device.write8(0x04, low & 0xFF);
-        self._device.write8(0x05, low >> 8);
-        self._device.write8(0x06, high & 0xFF);
-        self._device.write8(0x07, high >> 8);
