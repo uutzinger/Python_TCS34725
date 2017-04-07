@@ -228,4 +228,77 @@ class TCS34725(object):
         # based exclusively on clear since this might be more reliable?      */
         return int((-0.32466 * r) + (1.57837 * g) + (-0.73191 * b))
 
+    def rgb2hsv(r,g,b):
+        min_rgb = min(r,g,b)
+        max_rgb = mac(r,g,b)
 
+        v = max_rgb
+        delta = max_rgb - min_rgb
+        if (delta < 0.00001):
+            s = 0
+            h = 0
+            return (h,s,v)
+            
+        if ( max_rgb > 0.0 ):
+            s = (delta / max_rgb)
+        else:
+            s = 0.0
+            h = NaN
+            return (h,s,v)
+            
+        if ( r >= max_rgb ):
+            h = ( g - b ) / delta
+        elif ( g >= max_rgb ):
+            h = 2.0 + ( b - r ) / delta
+        else:
+            h = 4.0 + ( r - g ) / delta
+
+        h *= 60.0
+
+        if (h < 0.0 ):
+            h += 360.0
+
+        return (h,s,v)
+
+
+    def hsv2rgb(h,s,v)
+        if(s <= 0.0):
+            r = v;
+            g = v;
+            b = v;
+            return (r,g,b)
+        hh = h;
+        if (hh >= 360.0):
+            hh = 0.0
+        hh /= 60.0
+        i = (long)hh;
+        ff = hh - i;
+        p = v * (1.0 - s);
+        q = v * (1.0 - (s * ff));
+        t = v * (1.0 - (s * (1.0 - ff)))
+
+        if i==0:
+            r = v
+            g = t
+            b = p
+        elif i==1:
+            r = q
+            g = v
+            b = p
+        elif i==2:
+            r = p
+            g = v
+            b = t
+        elif i==3:
+            r = p
+            g = q
+            b = v
+        elif i==4:
+            r = t
+            g = p
+            b = v
+        else:
+            r = v
+            g = p
+            b = q
+        return (r,g,b)     
