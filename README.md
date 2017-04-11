@@ -9,6 +9,7 @@ To install, download the library by clicking the download zip link to the right 
 
 ````
 sudo python setup.py install
+sudo python3 setup.py install
 ````
 
 Make sure you have internet access on the device so it can download the required dependencies.
