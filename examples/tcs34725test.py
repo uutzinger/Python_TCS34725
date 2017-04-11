@@ -49,24 +49,27 @@ sensor.setGain(gain)
 lastPoll=time.time()
 previousRateTime=time.time()
 colorCounter=0
+colorRate=0
 
 while True:
   currentTimeS = time.time()
   if currentTimeS - lastPoll >= poll_interval :
-    sensor.setInterupt(False) # Turn ON LED
-    r, g, b, c = sensor.getRawData()
-    sensor.setInterupt(True)  # Turn OFF LED
-    r /= c
-    g /= c
-    b /= c
+    sensor.setInterrupt(False) # Turn ON LED
+    (r, g, b, c) = sensor.getRawData()
+    sensor.setInterrupt(True)  # Turn OFF LED
+    # print(r,g,b,c)
+    r = float(r) / c
+    g = float(g) / c
+    b = float(b) / c
     r *= 256 
     g *= 256
     b *= 256
-    color_temp=sensor.calcualteColorTemperature(r,g,b)
-    lux=sensor.calcualteLux(r,g,b)
-    print("R: %s G: %s B: %s" % r,g,b)
-    print("Color Temperature: %s", % color_temp)
-    print("LUX: %s", % lux)
+    color_temp=sensor.calculateColorTemperature(r,g,b)
+    lux=sensor.calculateLux(r, g, b)
+    print("R: %s G: %s B: %s" % (r, g, b))
+    print("Color Temperature: %s" % color_temp)
+    print("LUX: %s" % lux)
+    colorCounter = colorCounter + 1
     
   if ((currentTimeS - previousRateTime) >= 1.0):
     colorRate = colorCounter
