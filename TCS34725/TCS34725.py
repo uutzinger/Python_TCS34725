@@ -1,4 +1,24 @@
-#!/usr/bin/python3
+# The MIT License (MIT)
+#
+# Copyright (c) 2016 Adafruit Industries
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
 
 from __future__ import division
 
@@ -6,6 +26,7 @@ import time
 
 # TCS34725 default address.
 TCS34725_I2CADDR          = 0x29
+TCS34725_ID               = 0x12    # 0x44 = TCS34721/TCS34725, 0x4D = TCS34723/TCS34727 #
 
 TCS34725_COMMAND_BIT      = 0x80
 
@@ -48,7 +69,6 @@ TCS34725_PERS_60_CYCLE    = 0b1111  # 60 clean channel values outside threshold 
 TCS34725_CONFIG           = 0x0D
 TCS34725_CONFIG_WLONG     = 0x02    # Choose between short and long =12x) wait times via TCS34725_WTIME #
 TCS34725_CONTROL          = 0x0F    # Set the gain level for the sensor #
-TCS34725_ID               = 0x12    # 0x44 = TCS34721/TCS34725, 0x4D = TCS34723/TCS34727 #
 TCS34725_STATUS           = 0x13
 TCS34725_STATUS_AINT      = 0x10    # RGBC Clean channel interrupt #
 TCS34725_STATUS_AVALID    = 0x01    # Indicates that the RGBC channels have completed an integration cycle #
@@ -74,8 +94,10 @@ TCS34725_GAIN_16X               = 0x02  #  16x gain
 TCS34725_GAIN_60X               = 0x03  #  60x gain
 
 class TCS34725(object):
+    """TCS34725 color sensor."""
+    
     def __init__(self, integration_time=TCS34725_INTEGRATIONTIME_2_4MS,
-                 gain=TCS34725_GAIN_4X, address=TCS34725_ADDRESS, i2c=None, **kwargs):
+                 gain=TCS34725_GAIN_4X, address=TCS34725_I2CADDR , i2c=None, **kwargs):
         """Initialize the TCS34725 sensor."""                 
         # Create I2C device.
         if i2c is None:
@@ -83,8 +105,8 @@ class TCS34725(object):
             i2c = I2C
         self._device = i2c.get_i2c_device(address, **kwargs)
         # Make sure we are connected
-        chip_id = uint8(self._device.read8(TCS34725_ID))
-        if ((chip_id != 0x44) ):
+        chip_id = self._device.readU8(TCS34725_COMMAND_BIT | TCS34725_ID)
+        if chip_id != 0x44:
             raise RuntimeError('Failed to read TCS34725 ID, check wiring.')
 
         self.setIntegrationTime(integration_time)
@@ -93,15 +115,16 @@ class TCS34725(object):
     
     def enable(self):
         """Enable the chip."""
-        self._device.write8(TCS34725_ENABLE, TCS34725_ENABLE_PON)
+        self._device.write8(TCS34725_COMMAND_BIT | TCS34725_ENABLE, TCS34725_ENABLE_PON)
         time.sleep(0.01);
-        self._device.write8(TCS34725_ENABLE, (TCS34725_ENABLE_PON | TCS34725_ENABLE_AEN)) 
+        self._device.write8(TCS34725_COMMAND_BIT | TCS34725_ENABLE, (TCS34725_ENABLE_PON | TCS34725_ENABLE_AEN)) 
 
     def disable(self):
         """Disable the chip (power down)."""
         # Turn the device off to save power
-        reg = uint8(self._device.read8(TCS34725_ENABLE))
-        self._device.write8(TCS34725_ENABLE, reg & ~(TCS34725_ENABLE_PON | TCS34725_ENABLE_AEN))
+        reg = self._device.readU8(TCS34725_COMMAND_BIT | TCS34725_ENABLE)
+        reg = reg & ~(TCS34725_ENABLE_PON | TCS34725_ENABLE_AEN)
+        self._device.write8(TCS34725_COMMAND_BIT | TCS34725_ENABLE, reg)
  
     def setGain(self, gain):
         """Adjusts the gain on the TCS34725 (adjusts the sensitivity to light).
@@ -112,7 +135,7 @@ class TCS34725(object):
          - TCS34725_GAIN_60X  = 60x gain
         """
         # Update the timing register
-        self._device.write8(TCS34725_CONTROL, gain)
+        self._device.write8(TCS34725_COMMAND_BIT | TCS34725_CONTROL, gain)
         # Update value placeholders
         self._tcs34725Gain = gain
 
@@ -120,7 +143,7 @@ class TCS34725(object):
         """Return the current gain value.  This will be one of the constants
         specified in the set_gain doc string.
         """
-        return self._device.read8(TCS34725_CONTROL)
+        return self._device.readU8(TCS34725_COMMAND_BIT | TCS34725_CONTROL)
         
     def setIntegrationTime(self, it):
         """Sets the integration time for the TC34725.  Provide one of these
@@ -133,7 +156,7 @@ class TCS34725(object):
          - TCS34725_INTEGRATIONTIME_700MS  = 700ms - 256 cycles - Max Count: 65535
         """
         # Update the timing register */
-        self._device.write8(TCS34725_ATIME, it)
+        self._device.write8(TCS34725_COMMAND_BIT | TCS34725_ATIME, it)
         # Update value placeholders */
         self._tcs34725IntegrationTime = it
 
@@ -141,7 +164,7 @@ class TCS34725(object):
         """Return the current integration time value.  This will be one of the
         constants specified in the set_integration_time doc string.
         """
-        return self.device.read8(TCS34725_ATIME)
+        return self.device.readU8(TCS34725_COMMAND_BIT | TCS34725_ATIME)
     
     def getRawData(self):
         """Reads the raw red, green, blue and clear channel values. Will return
@@ -149,10 +172,10 @@ class TCS34725(object):
         numbers).
         """
         #
-        c = self._device.read16(TCS34725_CDATAL);
-        r = self._device.read16(TCS34725_RDATAL);
-        g = self._device.read16(TCS34725_GDATAL);
-        b = self._device.read16(TCS34725_BDATAL);
+        c = self._device.readU16LE(TCS34725_COMMAND_BIT | TCS34725_CDATAL);
+        r = self._device.readU16LE(TCS34725_COMMAND_BIT | TCS34725_RDATAL);
+        g = self._device.readU16LE(TCS34725_COMMAND_BIT | TCS34725_GDATAL);
+        b = self._device.readU16LE(TCS34725_COMMAND_BIT | TCS34725_BDATAL);
         # Set a delay for the integration time */
         if   self._tcs34725IntegrationTime == TCS34725_INTEGRATIONTIME_2_4MS:
             time.sleep(0.0024)
@@ -170,23 +193,23 @@ class TCS34725(object):
 
     def getRawData_noDelay(self):
         #
-        c = self._device.read16(TCS34725_CDATAL);
-        r = self._device.read16(TCS34725_RDATAL);
-        g = self._device.read16(TCS34725_GDATAL);
-        b = self._device.read16(TCS34725_BDATAL);
+        c = self._device.readU16LE(TCS34725_COMMAND_BIT | TCS34725_CDATAL);
+        r = self._device.readU16LE(TCS34725_COMMAND_BIT | TCS34725_RDATAL);
+        g = self._device.readU16LE(TCS34725_COMMAND_BIT | TCS34725_GDATAL);
+        b = self._device.readU16LE(TCS34725_COMMAND_BIT | TCS34725_BDATAL);
         return (r, g, b, c)
 
     def setPersistanceFilter(self):
-        self._device.write8(TCS34725_PERS, TCS34725_PERS_NONE); 
+        self._device.write8(TCS34725_COMMAND_BIT | TCS34725_PERS, TCS34725_PERS_NONE); 
 
     def setInterrupt(self, status):
         """Enable or disable interrupts by setting enabled to True or False."""
-        r = uint8(self._device.read8(TCS34725_ENABLE))
+        r = self._device.readU8(TCS34725_COMMAND_BIT | TCS34725_ENABLE)
         if status:
             r |= TCS34725_ENABLE_AIEN;
         else:
             r &= ~TCS34725_ENABLE_AIEN;
-        self._device.write8(TCS34725_ENABLE, r);
+        self._device.write8(TCS34725_COMMAND_BIT | TCS34725_ENABLE, r);
         time.sleep(1)
 
     def clearInterrupt(self):
@@ -200,7 +223,7 @@ class TCS34725(object):
         self._device.write8(0x06, high & 0xFF);
         self._device.write8(0x07, high >> 8);
         
-    def calculateColorTemperature(r, g, b)
+    def calculateColorTemperature(self, r, g, b):
         # 1. Map RGB values to their XYZ counterparts.    */
         # Based on 6500K fluorescent, 3000K fluorescent   */
         # and 60W incandescent values for a wide range.   */
@@ -213,7 +236,7 @@ class TCS34725(object):
         # 2. Calculate the chromaticity co-ordinates      */
         xc = (X) / (X + Y + Z);
         yc = (Y) / (X + Y + Z);
-        if (0.1858 - yz) == 0:
+        if (0.1858 - yc) == 0:
             return None
             
         # 3. Use McCamy's formula to determine the CCT    */
@@ -223,14 +246,14 @@ class TCS34725(object):
         # Return the results in degrees Kelvin
         return int(cct)
 
-    def calculateLux(r, g, b)
+    def calculateLux(self, r, g, b):
         # This only uses RGB ... how can we integrate clear or calculate lux */
         # based exclusively on clear since this might be more reliable?      */
         return int((-0.32466 * r) + (1.57837 * g) + (-0.73191 * b))
 
-    def rgb2hsv(r,g,b):
+    def rgb2hsv(self, r, g, b):
         min_rgb = min(r,g,b)
-        max_rgb = mac(r,g,b)
+        max_rgb = max(r,g,b)
 
         v = max_rgb
         delta = max_rgb - min_rgb
@@ -261,7 +284,7 @@ class TCS34725(object):
         return (h,s,v)
 
 
-    def hsv2rgb(h,s,v)
+    def hsv2rgb(self, h, s, v):
         if(s <= 0.0):
             r = v;
             g = v;
@@ -271,7 +294,7 @@ class TCS34725(object):
         if (hh >= 360.0):
             hh = 0.0
         hh /= 60.0
-        i = (long)hh;
+        i = long(hh);
         ff = hh - i;
         p = v * (1.0 - s);
         q = v * (1.0 - (s * ff));
